@@ -292,6 +292,10 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 api = APIRouter(prefix='/api')
 
+@app.get("/")
+async def root_health_check():
+    return {"status": "ok", "message": "Coin Earn Backend is Running on Vercel"}
+
 
 # -------------------- Pydantic models --------------------
 class UpiIn(BaseModel):
