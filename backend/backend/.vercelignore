@@ -1,0 +1,5 @@
+make_admin.py
+venv/
+__pycache__/
+.env
+tests/
