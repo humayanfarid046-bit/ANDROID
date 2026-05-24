@@ -26,16 +26,16 @@ app.add_middleware(
     allow_headers=['*'],
 )
 
-# Root path for Vercel
+# --- ROOT ---
 @app.get("/")
 async def root():
     return {
         "status": "online",
-        "message": "Reward App API is LIVE on Vercel",
+        "message": "Reward App API is Running Successfully",
         "database": "connected" if INSTANT_APP_ID else "missing_keys"
     }
 
-# --- InstantDB API Helpers ---
+# --- HELPERS ---
 def _headers(as_token: Optional[str] = None):
     h = {"Authorization": f"Bearer {INSTANT_ADMIN_TOKEN}"}
     if as_token: h["X-Instant-As-Token"] = as_token
@@ -43,25 +43,25 @@ def _headers(as_token: Optional[str] = None):
 
 async def instant_query(q: Dict[str, Any], as_token: Optional[str] = None) -> Dict[str, Any]:
     if not INSTANT_APP_ID: return {}
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    async with httpx.AsyncClient(timeout=15.0) as client:
         url = f"{INSTANT_BASE}/admin/v1/apps/{INSTANT_APP_ID}/query"
         res = await client.post(url, json=q, headers=_headers(as_token))
         return res.json() if res.status_code == 200 else {}
 
 async def instant_transact(steps: List[List[Any]]):
     if not INSTANT_APP_ID: return
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    async with httpx.AsyncClient(timeout=15.0) as client:
         url = f"{INSTANT_BASE}/admin/v1/apps/{INSTANT_APP_ID}/transact"
         await client.post(url, json={'steps': steps}, headers=_headers())
 
-# --- Routes ---
+# --- ROUTES ---
 @api.post('/profile/bootstrap')
 async def bootstrap(authorization: Annotated[Optional[str], Header()] = None):
-    if not authorization: raise HTTPException(401, "No auth header")
+    if not authorization: raise HTTPException(401, "No auth")
     token = authorization.replace('Bearer ', '')
     u_data = await instant_query({'$users': {}}, as_token=token)
     user = u_data.get('$users', [])[0] if u_data.get('$users') else None
-    if not user: raise HTTPException(401, "Invalid session")
+    if not user: raise HTTPException(401, "User not found")
 
     p_data = await instant_query({'profiles': {'$': {'where': {'user_id': user['id']}}}})
     if p_data.get('profiles'): return p_data['profiles'][0]
@@ -70,12 +70,13 @@ async def bootstrap(authorization: Annotated[Optional[str], Header()] = None):
     profile = {
         'id': pid, 'user_id': user['id'], 'email': user['email'],
         'role': 'admin' if user['email'].lower() == ADMIN_EMAIL else 'user',
-        'coins': 0, 'kyc_status': 'not_submitted', 'created_at': datetime.now(timezone.utc).isoformat()
+        'coins': 0, 'kyc_status': 'not_submitted',
+        'created_at': datetime.now(timezone.utc).isoformat()
     }
     await instant_transact([['update', 'profiles', pid, profile]])
     return profile
 
-@api.get("/banners")
+@api.get('/banners')
 async def get_banners():
     res = await instant_query({'banners': {'$': {'where': {'is_active': True}}}})
     return res.get('banners', [])
