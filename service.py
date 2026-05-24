@@ -6,15 +6,19 @@ from typing import Optional, Annotated, Any, Dict, List
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header
 from starlette.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from dotenv import load_dotenv
 
-app = FastAPI()
-api = APIRouter(prefix='/api')
+# Load environment variables
+load_dotenv()
 
-# Load ENV
+# Configuration
 INSTANT_APP_ID = os.environ.get('INSTANT_APP_ID')
 INSTANT_ADMIN_TOKEN = os.environ.get('INSTANT_ADMIN_TOKEN')
 ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', '').lower()
 INSTANT_BASE = 'https://api.instantdb.com'
+
+app = FastAPI()
+api = APIRouter(prefix='/api')
 
 app.add_middleware(
     CORSMiddleware,
@@ -24,12 +28,13 @@ app.add_middleware(
     allow_headers=['*'],
 )
 
+# Root path to fix Vercel 404
 @app.get("/")
 async def root():
     return {
         "status": "online",
-        "message": "Coin Earn API is Running",
-        "db_connected": bool(INSTANT_APP_ID and INSTANT_ADMIN_TOKEN)
+        "message": "Reward App API is Running on Vercel",
+        "database": "connected" if INSTANT_APP_ID else "missing_keys"
     }
 
 # --- InstantDB API Helpers ---
@@ -42,7 +47,7 @@ async def instant_query(q: Dict[str, Any], as_token: Optional[str] = None) -> Di
         res = await client.post(url, json=q, headers=headers)
         return res.json() if res.status_code == 200 else {}
 
-# --- Routes ---
+# --- Basic Routes ---
 @api.get("/banners")
 async def get_banners():
     res = await instant_query({'banners': {'$': {'where': {'is_active': True}}}})
